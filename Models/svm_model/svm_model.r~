@@ -1,0 +1,29 @@
+library(e1071)
+library(rpart)
+data<-read.csv("p12_12.csv",header=TRUE)
+
+train<-data[1:250,]
+test<-data[251:330,]
+
+svm.model<-svm(DTRAD~ .,data=train,cost=1000,gamma=0.0001)
+svm.pred<-predict(svm.model, test[,-5])
+
+
+rmse <- function(error)
+{
+  sqrt(mean(error^2))
+}
+
+error<-(data$DTRAD - svm.pred)
+print(rmse(error))
+
+
+
+acc<-crossprod(svm.pred-test[,5])/length(data)
+#print(acc)
+
+rpart.model<-svm(DTRAD~ .,data=train,cost=1000,gamma=0.0001)
+rpart.pred<-predict(svm.model, test[,-5])
+acc1<-crossprod(rpart.pred-test[,5])/length(data)
+
+#print(acc1)

@@ -1,0 +1,198 @@
+# --------------------------------------
+# THIS IS A STUB: DO NOT RUN IT AS IT IS
+# --------------------------------------
+
+# The R script that sources this script should define the variables
+data.file     <- "p12_12.csv" # data file
+output.prefix <- "test"     # prefix for output files
+covariates    <- 1:4            # covariate column indices
+response      <- 5              # response variable column index
+#
+# See example car-mileage.r.
+#
+ stopifnot( exists( "data.file" ),     is.character( data.file ),
+            exists( "covariates" ),    is.numeric( covariates ), length( covariates ) > 0,
+            exists( "response" ),      is.numeric( response ),   length( response ) == 1,
+            exists( "output.prefix" ), is.character( output.prefix ) )
+
+# read data
+#
+ data <- read.csv( data.file, header = T, as.is = T, comment = '#' )
+
+ N               <- nrow( data )                 # data size
+ covariate.names <- colnames( data )[covariates] # covariate names
+ n               <- length( covariates )         # total number of covariates for this data set
+ response.name   <- colnames( data )[response]   # response variable name
+
+ pdf( paste( output.prefix, '-analysis.pdf', sep = '' ), paper = 'a4r', width = 11.69, height = 8.27, useDingbats = F )
+
+# required packages
+#
+ require( cluster )
+ require( car ) # (An R and S-Plus) Companion to Applied Regression
+
+# Some EDA
+#
+ plot( data[,c( covariates, response )],col='blue', cex = 0.5 )                              # pairwise scatterplots
+ plot( cluster::agnes( data[,c( covariates, response )] ), which = 2, xlab = '' ) # a visual way of spotting potential outliers/influencial points
+
+# full-model fit and diagnostics
+#
+ fit          <- lm( as.formula( paste( response.name, '~', paste( covariate.names, collapse = ' + ' ) ) ), data = data ) # full-model fit
+ sigmasqr.hat <- sum( residuals( fit )^2 ) / ( N - n ) # Estimated Variance
+
+ diag <- ls.diag( fit )            # regression diagnostics
+ infl <- influence.measures( fit ) # influence measures
+
+ infpts.cook <- which( infl$infmat[,'cook.d'] > ( 4 / N ) )                             # potential influential points
+ infpts.lev  <- which( infl$infmat[,'hat']    > min( infl$infmat[infpts.cook,'hat'] ) ) # potential influential points
+ infpts      <- union( infpts.cook, infpts.lev )
+
+ if ( length( infpts ) > 0 ) # full-model fit after removing influential points from the data
+  {
+   fit.1 <- lm( as.formula( paste( response.name, '~', paste( covariate.names, collapse = ' + ' ) ) ), data = data, subset = setdiff( 1:N, infpts ) )
+   sigmasqr.hat.1 <- sum( residuals( fit.1 )^2 ) / ( N - length( infpts ) - n )
+  }
+
+# Summary of the full-model fit: See which parameters in the full model may be significant
+#
+ sink( paste( output.prefix, '-summary.txt', sep = '' ) )
+  cat( 'Full Linear Model Fit\n' )
+  print( summary( fit ) )
+
+  cat( 'Diagnostics\n\n' )
+  print( diag )
+
+  print( infl )
+
+  cat( '\n' )
+  print( car::ncvTest( fit ) )
+ sink()
+
+# Diagnostics
+#
+ op <- par( mfrow = c( 2, 2 ), pch = 19, cex = 0.5 )
+  plot( fit )
+
+  # hist( rstandard( fit ), breaks = 'FD', xlab = 'Standardized Residuals', col = 'gray', border = 'white' )
+  # rug( rstandard( fit ) )
+
+  # hist( rstudent( fit ),  breaks = 'FD', xlab = 'Studentized Residuals', col = 'gray', border = 'white' )
+  # rug( rstudent( fit ) )
+
+  slp   <- car::spreadLevelPlot( fit )
+  inflp <- car::influencePlot( fit, id.n = 3, id.col = 'blue', col = 'gray60' )
+
+  # q <- qf( 0.5, n, N - n ) # data point is considered influential if Cook's distance > q     # ATTN need reference
+  # plot( infl$infmat[,'cook.d'], type = 'h', ylim = c( 0, max( infl$infmat[,'cook.d'], q, 4 / N ) ), ylab = "Cook's Distance" )
+  # abline( h = q, col = 'red', lty = 3 ); text( N, q, 'F(n,N-n)', col = 'red', pos = 3 )      # ATTN need reference
+  # for ( i in infpts.cook ) text( i, infl$infmat[i,'cook.d'], i, col = 'red' )
+
+  plot( infl$infmat[,'cook.d'], type = 'h', ylim = c( 0, max( infl$infmat[,'cook.d'], 4 / N ) ), ylab = "Cook's Distance" )
+  abline( h = 4 / N, col = 'red', lty = 3 ); text( N, 4 / N, '4 / N', col = 'red', pos = 3 ) # ATTN need reference
+  for ( i in infpts.cook ) text( i, infl$infmat[i,'cook.d'], i, col = 'red' )
+
+  plot( infl$infmat[,'hat'], type = 'h', ylab = "Leverage" )
+  for ( i in infpts.lev ) text( i, infl$infmat[i,'hat'], i, col = 'red' )
+  # abline( h = min( infl$infmat[infpts.lev,'hat'] ), col = 'red', lty = 3 )
+
+  for ( cn in covariate.names ) { plot( data[,cn], diag$stud.res, ylab = 'Studentized Residuals', xlab = cn, col='blue' ); abline( h = 0, col = 'red' ) }
+ par( op )
+
+ sink( paste( output.prefix, '-summary.txt', sep = '' ), append = T )
+  # cat( '\nSpread-Level Plot: ' )
+  # print( slp )
+
+  cat( '\nPossible Influential Points\n\n' )
+  cat( 'Cook:', infpts.cook, '\nLeverage:', infpts.lev, '\n' )
+
+  cat( '\nInfluence Plot:\n' )
+  print( inflp )
+
+  cat( '\nFull Linear Model Fit Sans Influential Points\n' )
+  #print( summary( fit.1 ) )
+ sink()
+
+# model selection
+#
+ source( '~/Public/R/digits.r', chdir = T )
+
+ nSM       <- 2^n           # number of possible submodels **ATTN** nSM could be very large for large n
+ submodels <- 0:( nSM - 1 ) # valid submodel indices (including the null submodel 0)
+
+# loop over submodels
+#
+ chisq <- Cp <- aic <- bic <- nActive <- submodels.b <- NULL
+ for ( s in submodels )
+  {
+   b           <- bits( s, n )                                # active covariates in the submodel s
+   submodels.b <- c( submodels.b, paste( b, collapse = '' ) ) # binary string representation of s
+   a           <- as.logical( b )
+   nA          <- sum( a )                                    # number of active covariates in submodel s
+   nActive     <- c( nActive, nA )
+ 
+   if ( nA == 0 )
+    f <- as.formula( paste( response.name, '~', 1 ) )
+   else
+    f <- as.formula( paste( response.name, '~', paste( covariate.names[a], collapse = ' + ' ) ) )
+
+   fit <- lm( f, data = data )                                   # fit for the s-th submodel
+   rss <- sum( residuals( fit )^2 )                              # residual sum of squares
+   mlN <- 0.5 * ( N * log( sigmasqr.hat ) + rss / sigmasqr.hat ) # -log likelihood, assuming N(0,sigma^2) IID noise
+
+   Cp    <- c( Cp,    rss + 2.0 * ( nA + 1 ) * sigmasqr.hat ) # Mallows Cp, equivalent to AIC for linear model with normal errors
+   aic   <- c( aic,   mlN + ( nA + 1 ) )                      # conventionally, AIC is defined with the other sign
+   bic   <- c( bic,   mlN + 0.5 * ( nA + 1 ) * log( N ) )     # conventionally, BIC is defined with the other sign
+   chisq <- c( chisq, rss / sigmasqr.hat )                    # for those who are fond of this quantity
+  }
+
+# reorder all quantities according to the number of active covariates
+#
+ o           <- order( nActive )
+ submodels   <- submodels[o]
+ submodels.b <- submodels.b[o]
+ aic         <- aic[o]
+ bic         <- bic[o]
+ Cp          <- Cp[o]
+ nActive     <- nActive[o]
+
+# submodel selection: minimize each score
+#
+ sm.index.Cp    <- which( Cp    == min( Cp    ) )
+ sm.index.aic   <- which( aic   == min( aic   ) )
+ sm.index.bic   <- which( bic   == min( bic   ) )
+ sm.index.chisq <- which( chisq == min( chisq ) )
+
+# plot submodel scores
+#
+ op <- par( mfcol = c( 2, 2 ) )
+  plot( sort( submodels ), Cp, type = 'b', xlab = 'Submodel', ylab = expression( C[p] ), xaxt = 'n', main = "(Linear) Model Selection (Cp)",col='blue' )
+  axis( side = 1, at = sort( submodels ), labels = submodels.b, cex.axis = 0.75, las = 3 )
+  abline( v = sm.index.Cp - 1, h = Cp[sm.index.Cp], col = 'red', lty = 2 )
+
+  plot( sort( submodels ), aic, type = 'b', xlab = 'Submodel', ylab = 'AIC', xaxt = 'n', main = "(Linear) Model Selection (AIC)", col='blue' )
+  axis( side = 1, at = sort( submodels ), labels = submodels.b, cex.axis = 0.75, las = 3 )
+  abline( v = sm.index.aic - 1, h = aic[sm.index.aic], col = 'red', lty = 2 )
+
+  plot( sort( submodels ), chisq, type = 'b', xlab = 'Submodel', ylab = expression( chi^2 ), xaxt = 'n', main = "(Linear) Model Selection (Chi-Squared)", col='blue' )
+  axis( side = 1, at = sort( submodels ), labels = submodels.b, cex.axis = 0.75, las = 3 )
+  abline( v = sm.index.chisq - 1, h = chisq[sm.index.chisq], col = 'red', lty = 2 )
+
+  plot( sort( submodels ), bic, type = 'b', xlab = 'Submodel', ylab = 'BIC', xaxt = 'n', main = "(Linear) Model Selection (BIC)",col='blue')
+  axis( side = 1, at = sort( submodels ), labels = submodels.b, cex.axis = 0.75, las = 3 )
+  abline( v = sm.index.bic - 1, h = bic[sm.index.bic], col = 'red', lty = 2 )
+ par( op )
+
+ cat( '\nModel Selection\n\n', file = paste( output.prefix, '-summary.txt', sep = '' ), append = T )
+ write( sprintf( paste( "%", max( 8, n ), "s %23s %23s %23s", sep = '' ), 'submodel', 'dCp', 'dAIC', 'dBIC' ),
+        file = paste( output.prefix, '-summary.txt', sep = '' ), append = T )
+ write( t( cbind( sprintf( paste( "%", max( 8, n ), "s", sep = '' ), submodels.b ),
+                  sprintf( "%23.16e", Cp  - min( Cp  ) ),
+                  sprintf( "%23.16e", aic - min( aic ) ),
+                  sprintf( "%23.16e", bic - min( bic ) ) ) ),
+        file = paste( output.prefix, '-summary.txt', sep = '' ), append = T, ncol = 4 )
+ write( sprintf( paste( "\n%", max( 8, n ), "s %23.16e %23.16e %23.16e", sep = '' ), 'minScore', min( Cp ), min( aic ), min( bic ) ), file = paste( output.prefix, '-summary.txt', sep = '' ), append = T )
+ write( sprintf( paste( "%", max( 8, n ), "s %23s %23s %23s", sep = '' ), 'selected', submodels.b[sm.index.Cp], submodels.b[sm.index.aic], submodels.b[sm.index.bic] ), file = paste( output.prefix, '-summary.txt', sep = '' ), append = T )
+
+dev.off()
+

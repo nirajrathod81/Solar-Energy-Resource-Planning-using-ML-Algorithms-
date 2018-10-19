@@ -1,0 +1,24 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="SolarEnergyPrediction.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="svmresult" Type="System.String" Scope="User">
+      <Value Profile="(Default)">G:\SEP\BE_PROJECT_modified\svm_model\Results.xls</Value>
+    </Setting>
+    <Setting Name="lsrresult" Type="System.String" Scope="User">
+      <Value Profile="(Default)">G:\SEP\BE_PROJECT_modified\lm_model\Results.xls</Value>
+    </Setting>
+    <Setting Name="svmmodel" Type="System.String" Scope="User">
+      <Value Profile="(Default)">G:\SEP\BE_PROJECT_modified\svm_model\Summary.pdf</Value>
+    </Setting>
+    <Setting Name="lsrmodel" Type="System.String" Scope="User">
+      <Value Profile="(Default)">G:\SEP\BE_PROJECT_modified\lm_model\test-analysis.pdf</Value>
+    </Setting>
+    <Setting Name="arimamodel" Type="System.String" Scope="User">
+      <Value Profile="(Default)">G:\SEP\BE_PROJECT_modified\arima\sesonal.pdf</Value>
+    </Setting>
+    <Setting Name="annmodel" Type="System.String" Scope="User">
+      <Value Profile="(Default)">G:\SEP\BE_PROJECT_modified\ann_model\model.pdf</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>

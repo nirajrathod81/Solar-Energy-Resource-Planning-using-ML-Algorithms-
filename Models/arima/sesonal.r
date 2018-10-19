@@ -1,0 +1,35 @@
+#par(mfrow=c(3,4))
+data<-read.csv("p12_12.csv",header=TRUE)
+
+ln_model<-lm(data$DTRAD~.,data=data)
+Y<-residuals(ln_model)
+#plot(Y)
+pdf("sesonal.pdf")
+par(mfrow=c(3,4))
+
+plot(data$DTRAD,col="blue",xlab='Days',ylab='Radiation')
+plot(Y,ylab='Residuals')
+
+Z=diff(Y,12)
+acf(Z,lag=36,lwd=3, col='red')
+pacf(Z,lag=36,lwd=3,col='blue')
+
+model1=arima(Z,order=c(0,0,1))
+E1=residuals(model1)
+acf(E1,lag=36,lwd=3,col='red')
+
+model2=arima(Z,order=c(1,0,0))
+E2=residuals(model2)
+acf(E2,lag=36,lwd=3,col='blue')
+
+model2b=arima(Y,order=c(1,0,0), seasonal = list(order = c(0, 1, 0),period=12)) 
+E3=residuals(model2b)
+model3c=arima(Y,order=c(1,0,0), seasonal = list(order = c(1, 0, 0), period = 12))
+E4=residuals(model3c)
+acf(E3,lag=36,lwd=3,col='red')
+acf(E4,lag=36,lwd=3,col='blue')
+pacf(E1,lag=36,lwd=3,col='red')
+pacf(E2,lag=36,lwd=3,col='blue')
+pacf(E2,lag=36,lwd=3,col='red')
+pacf(E3,lag=36,lwd=3,col='blue')
+dev.off()

@@ -1,0 +1,33 @@
+library(MASS)
+#library("neuralnet")
+library(nnet)
+
+data<-read.csv("p12_12.csv",header=TRUE)
+
+train<-data[1:250,-5] 
+test<-data[251:330,-5]
+
+new_train<-scale(train,center=TRUE,scale=TRUE);
+new_test<-scale(test,center=TRUE,scale=TRUE);
+
+response<-data$DTRAD
+resp_ind1<-class.ind(response[1:250])
+resp_ind2<-(response[251:330])
+
+#model<-neuralnet(DTRAD~DBT+DPT+RH+FFF, data=train, hidden = 2, lifesign = "minimal", linear.output = FALSE, threshold = 0.000001)
+
+#plot(model, rep = "best")
+#results <- compute(model,test)
+
+model<-nnet(new_train,resp_ind1,skip=TRUE,softmax=TRUE,size=10,maxit=100,decay=0.01,trace=F)
+
+pred1<-predict(model,new_train,type="class")
+d<-table(pred1,response[1:250])
+acc1<-sum((diag(d)))/sum(d)
+print(acc1)
+
+pred<-predict(model,new_test,type="class")
+t1<-table(pred,resp_ind2)
+acc<-sum((diag(t1)))/sum(t1)
+print(acc)
+
